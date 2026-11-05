@@ -42,7 +42,9 @@ def render(result: dict) -> str:
               f"- BM25: best k1={t['bm25']['best']['k1']}, b={t['bm25']['best']['b']} "
               f"(train nDCG@10 {t['bm25']['best']['train_ndcg@10']:.3f} vs default "
               f"{t['bm25']['default_train_ndcg@10']:.3f})",
-              f"- RM3: {t['rm3']['best']}", f"- LSA: best dims {t['lsa']['best_dims']}", "",
+              f"- RM3: {t['rm3']['best']}", f"- LSA: best dims {t['lsa']['best_dims']}",
+              f"- passage mix: weight on best-sentence score "
+              f"{t.get('passage_mix', {}).get('best_weight_on_passage', 'n/a')}", "",
               "## Error analysis", "", "```", json.dumps(
                   {k: v for k, v in result["errors"].items() if k != "examples_missed_at_100"},
                   indent=2), "```"]

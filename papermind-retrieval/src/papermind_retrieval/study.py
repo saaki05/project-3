@@ -16,7 +16,13 @@ from papermind_ingest import Claim, load_scifact
 
 from papermind_retrieval import evaluation as E
 from papermind_retrieval.neural import HashedEncoder, NeuralSystem, train_pairs
-from papermind_retrieval.systems import BM25System, FusionSystem, LSASystem, RM3System
+from papermind_retrieval.systems import (
+    BM25System,
+    FusionSystem,
+    LSASystem,
+    PassageSystem,
+    RM3System,
+)
 
 
 def run_system(system, claims: list[Claim], doc_ids: list[int], k: int = 100):
@@ -105,6 +111,23 @@ def run_study(data_dir, out_path=None, seeds=(0, 1, 2), pretrain_epochs=15, fine
     result["systems"]["LSA"] = {"metrics": _summaries(lsa_pq),
                                 "vs_default": _versus(lsa_pq, base_pq)}
 
+    # ---- passage-level evidence scoring, alone and mixed with document BM25
+    passage = PassageSystem(corpus, k1, b)
+    pass_pq = evaluate_system(passage, dev, doc_ids)
+    result["systems"]["best-sentence BM25"] = {"metrics": _summaries(pass_pq),
+                                               "vs_default": _versus(pass_pq, base_pq)}
+    w_scores = {}
+    for w in (0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0):
+        w_scores[w] = _mean(FusionSystem([tuned, passage], "minmax", [1 - w, w]), train, doc_ids)
+    best_w = max(w_scores, key=w_scores.get)
+    mixed = FusionSystem([tuned, passage], "minmax", [1 - best_w, best_w])
+    mixed_pq = evaluate_system(mixed, dev, doc_ids)
+    result["tuning"]["passage_mix"] = {"best_weight_on_passage": best_w,
+                                       "train_ndcg@10": {str(k): v for k, v in w_scores.items()}}
+    result["systems"]["BM25 + best-sentence (tuned mix)"] = {
+        "metrics": _summaries(mixed_pq), "vs_default": _versus(mixed_pq, base_pq),
+        "params": {"weight_on_passage": best_w}}
+
     # ---- fusion of lexical and latent
     fused = {"RRF(bm25 tuned, LSA)": FusionSystem([tuned, lsa], "rrf"),
              "min-max(bm25 tuned, LSA)": FusionSystem([tuned, lsa], "minmax")}
@@ -142,7 +165,8 @@ def run_study(data_dir, out_path=None, seeds=(0, 1, 2), pretrain_epochs=15, fine
     # ---- error analysis of the strongest system by nDCG@10
     best_name = max(result["systems"],
                     key=lambda n: result["systems"][n]["metrics"]["ndcg@10"]["mean"])
-    best_sys = {"bm25 tuned": tuned, "bm25 tuned + RM3": rm3, "LSA": lsa}.get(best_name) \
+    best_sys = {"bm25 tuned": tuned, "bm25 tuned + RM3": rm3, "LSA": lsa, "best-sentence BM25":
+                passage, "BM25 + best-sentence (tuned mix)": mixed}.get(best_name) \
         or fused.get(best_name) or tuned
     run = run_system(best_sys, dev, doc_ids)
     miss10, miss100, by_n = [], [], {}
@@ -159,8 +183,10 @@ def run_study(data_dir, out_path=None, seeds=(0, 1, 2), pretrain_epochs=15, fine
         elif not hit10:
             miss10.append(c.claim_id)
     result["errors"] = {
-        "analysed_system": best_name if best_name in ("bm25 tuned", "bm25 tuned + RM3", "LSA")
-        or best_name in fused else "bm25 tuned (neural systems not re-ranked here)",
+        "analysed_system": best_name if best_name in (
+            "bm25 tuned", "bm25 tuned + RM3", "LSA", "best-sentence BM25",
+            "BM25 + best-sentence (tuned mix)") or best_name in fused
+        else "bm25 tuned (neural systems not re-ranked here)",
         "claims_missed_at_10_but_found_at_100": len(miss10),
         "claims_missed_at_100": len(miss100),
         "hit_rate@10_by_num_relevant_docs": {str(k): float(np.mean(v))

@@ -8,6 +8,8 @@ Corpus: 5183 abstracts. Dev claims with evidence: 188. Hyper-parameters tuned on
 | bm25 tuned | 0.835 [0.793, 0.874] | 0.805 | 0.937 | 0.972 | +0.002 (p=0.705) |
 | bm25 tuned + RM3 | 0.832 [0.790, 0.873] | 0.805 | 0.931 | 0.980 | -0.001 (p=0.902) |
 | LSA | 0.684 [0.631, 0.734] | 0.640 | 0.842 | 0.979 | -0.149 (p=0.000) |
+| best-sentence BM25 | 0.726 [0.673, 0.776] | 0.688 | 0.865 | 0.966 | -0.107 (p=0.000) |
+| BM25 + best-sentence (tuned mix) | 0.835 [0.793, 0.874] | 0.805 | 0.937 | 0.972 | +0.002 (p=0.705) |
 | RRF(bm25 tuned, LSA) | 0.753 [0.708, 0.797] | 0.702 | 0.924 | 0.983 | -0.080 (p=0.000) |
 | min-max(bm25 tuned, LSA) | 0.824 [0.784, 0.863] | 0.792 | 0.943 | 0.988 | -0.009 (p=0.367) |
 | neural (pretrained only) | 0.392 [0.342, 0.444] | 0.355 | 0.525 | 0.739 | -0.441 (p=0.000) |
@@ -29,6 +31,7 @@ Corpus: 5183 abstracts. Dev claims with evidence: 188. Hyper-parameters tuned on
 - BM25: best k1=1.5, b=0.5 (train nDCG@10 0.859 vs default 0.855)
 - RM3: {'fb_docs': 10, 'fb_terms': 20, 'lam': 0.8, 'train_ndcg@10': 0.8488660541089059}
 - LSA: best dims 512
+- passage mix: weight on best-sentence score 0.0
 
 ## Error analysis
 

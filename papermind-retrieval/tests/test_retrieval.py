@@ -10,7 +10,13 @@ from papermind_retrieval.bm25 import BM25Index
 from papermind_retrieval.cli import main, render
 from papermind_retrieval.neural import HashedEncoder, NeuralSystem, hashed_ids, train_pairs
 from papermind_retrieval.study import run_study
-from papermind_retrieval.systems import BM25System, FusionSystem, LSASystem, RM3System
+from papermind_retrieval.systems import (
+    BM25System,
+    FusionSystem,
+    LSASystem,
+    PassageSystem,
+    RM3System,
+)
 
 
 def test_bm25_matches_hand_computation():
@@ -167,3 +173,19 @@ def test_study_end_to_end_and_report(tmp_path, capsys):
     assert "| bm25 tuned |" in text and "Error analysis" in text
     assert main(["report", "--results", str(out)]) == 0
     assert "PaperMind retrieval results" in capsys.readouterr().out
+
+
+def test_passage_system_scores_documents_by_their_best_sentence():
+    corpus = {
+        1: Document(1, "A", ("The weather was fine.", "Statins lower LDL cholesterol.", "Other.")),
+        2: Document(2, "B", ("Cholesterol is mentioned once in a long unrelated abstract.",
+                             "Many other words appear here about completely different topics.",
+                             "And still more filler text without relevance.")),
+        3: Document(3, "C", ()),  # a document without sentences must not break scoring
+    }
+    ps = PassageSystem(corpus)
+    sc = ps.scores("statins lower cholesterol")
+    assert sc.shape == (3,) and sc[0] > sc[1] >= sc[2] == 0
+    # equals the maximum of per-sentence BM25 scores for document 1
+    sent_scores = ps.index.score(["statin", "lower", "cholesterol"])
+    assert sc[0] == pytest.approx(sent_scores[:3].max())

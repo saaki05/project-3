@@ -130,3 +130,26 @@ class FusionSystem:
             span = p.max() - p.min()
             out = out + w * ((p - p.min()) / span if span > 0 else np.zeros_like(p))
         return out
+
+
+class PassageSystem:
+    """Document score from its best-matching *sentence* (sentence-level BM25, max per document).
+
+    SciFact evidence is a few sentences inside an abstract, so a strong single sentence can
+    be a better relevance signal than diluted whole-abstract term statistics.
+    """
+
+    def __init__(self, corpus: dict[int, Document], k1=1.2, b=0.75, stem=True, stop=True):
+        self.stem, self.stop = stem, stop
+        self.doc_ids = sorted(corpus)
+        toks, starts = [], []
+        for i in self.doc_ids:
+            starts.append(len(toks))
+            sents = corpus[i].sentences or ("",)
+            toks.extend(tokenize(s, stem, stop) for s in sents)
+        self.starts = np.asarray(starts)
+        self.index = BM25Index(k1, b).fit(list(range(len(toks))), toks)
+
+    def scores(self, text: str) -> np.ndarray:
+        sent = self.index.score(tokenize(text, self.stem, self.stop))
+        return np.maximum.reduceat(sent, self.starts)
