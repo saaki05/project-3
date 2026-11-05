@@ -38,6 +38,38 @@ This is a controlled ablation study. It does not claim a new retrieval method.
 | Citation-graph reranking | **not tested**: SciFact has no citation graph |
 | Database / vector store | not used (in-memory index) |
 
+## Results (SciFact dev, 188 claims with evidence, 5,183 abstracts)
+
+Full tables with confidence intervals, ablations, tuning and error analysis:
+[`papermind-retrieval/results/REPORT.md`](papermind-retrieval/results/REPORT.md), generated
+from `scifact.json` in the same folder. Hyper-parameters were tuned on 505 training claims.
+Headline numbers, copied from the report:
+
+| system | nDCG@10 [95% CI] | Recall@100 |
+|---|---|---|
+| BM25 (k1=1.2, b=0.75) | 0.833 [0.792, 0.872] | 0.972 |
+| BM25 tuned (k1=1.5, b=0.5) | 0.835 [0.793, 0.874] (+0.002, p=0.705) | 0.972 |
+| BM25 + RM3 | 0.832 [0.790, 0.873] (−0.001, p=0.902) | 0.980 |
+| LSA (512 dims) | 0.684 [0.631, 0.734] | 0.979 |
+| min-max fusion(BM25, LSA) | 0.824 [0.784, 0.863] (−0.009, p=0.367) | 0.988 |
+| RRF(BM25, LSA, neural) | 0.765 [0.722, 0.807] | 0.990 |
+| neural dual-encoder (fine-tuned) | 0.634 [0.580, 0.689] | 0.851 |
+
+What this supports, and what it does not:
+
+- On this benchmark, **nothing tested beat default BM25 on nDCG@10**; tuning and
+  pseudo-relevance feedback made no significant difference, and fusing BM25 with weaker
+  retrievers lowered nDCG@10 (RRF variants: −0.067 to −0.080, p < 0.001).
+- Fusion did raise Recall@100 (0.972 → 0.983–0.990), which would matter for a re-ranking
+  pipeline; that difference was not tested for significance.
+- Title-only retrieval is much worse (−0.259); abstract-only is slightly worse than
+  title+abstract (−0.010, p=0.020); stemming and stop-word removal effects are small.
+- The paired p-values are uncorrected for the ~15 comparisons made; treat p-values near
+  0.02 with caution.
+- The neural retriever is a small hashed-feature model, not a pretrained transformer, so
+  these results say nothing about modern dense retrievers. The BM25 numbers are not
+  comparable with published BEIR figures, which use a different query set and protocol.
+
 ## Quick start
 
 ```bash
