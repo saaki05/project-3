@@ -64,7 +64,7 @@ What this supports, and what it does not:
   pipeline; that difference was not tested for significance.
 - Title-only retrieval is much worse (−0.259); abstract-only is slightly worse than
   title+abstract (−0.010, p=0.020); stemming and stop-word removal effects are small.
-- The paired p-values are uncorrected for the ~15 comparisons made; treat p-values near
+- The paired p-values are uncorrected for the 13 comparisons against default BM25 (per metric); treat p-values near
   0.02 with caution.
 - The neural retriever is a small hashed-feature model, not a pretrained transformer, so
   these results say nothing about modern dense retrievers. The BM25 numbers are not
